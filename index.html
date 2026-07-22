@@ -45,7 +45,15 @@
   #capital a { color: var(--mut); cursor: pointer; float: right; font-family: var(--mono); }
   #capital a:hover { color: var(--acc); }
 
+  #cap { display: flex; align-items: center; gap: 12px; margin-top: 3px; }
+  #cap text { font: 11px var(--mono); fill: var(--bright); }
+  #cap text.u { font-size: 8px; fill: var(--mut); }
+  #capStats { font-size: 10px; line-height: 1.7; color: var(--mut); }
+  #capStats b { color: var(--txt); font-weight: normal; font-family: var(--mono); }
+
   table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  #zones tr { cursor: default; }
+  #zones tr:hover td { background: #12161b; }
   th { font-size: 9px; letter-spacing: .1em; color: var(--mut); font-weight: normal;
     text-align: left; padding: 2px 4px 4px; border-bottom: 1px solid var(--line2); }
   td { padding: 3px 4px; border-bottom: 1px solid var(--line); }
@@ -77,6 +85,11 @@
   <div class="box">
     <input id="ship" autocomplete="off" spellcheck="false">
     <div id="shipSuggestions" class="sug"></div>
+  </div>
+  <div class="lbl">ANSIBLEX CAPACITOR</div>
+  <div id="cap">
+    <svg id="capWheel" width="76" height="76" viewBox="0 0 76 76"></svg>
+    <div id="capStats"></div>
   </div>
   <table id="zones"></table>
 </div>

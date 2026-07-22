@@ -292,14 +292,74 @@ function animate() {
 }
 animate();
 
+// ansiblex capacitor: 1250 TJ, ~200 TJ/h average, 6.25 h from empty,
+// ship-style recharge curve C(t) = Cmax(1+(sqrt(C0/Cmax)-1)e^(-t/tau))^2, tau = 22500s/5
+const CAP_MAX = 1250, CAP_TAU = 4500, CAP_AVG = 200, SEGS = 24;
+const capSegs = [];
+{
+  const svg = document.getElementById('capWheel');
+  for (let i = 0; i < SEGS; i++) {
+    const a = (i / SEGS) * Math.PI * 2 - Math.PI / 2;
+    const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    l.setAttribute('x1', 38 + Math.cos(a) * 24);
+    l.setAttribute('y1', 38 + Math.sin(a) * 24);
+    l.setAttribute('x2', 38 + Math.cos(a) * 34);
+    l.setAttribute('y2', 38 + Math.sin(a) * 34);
+    l.setAttribute('stroke-width', 4);
+    svg.appendChild(l);
+    capSegs.push(l);
+  }
+  const t1 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  t1.setAttribute('x', 38); t1.setAttribute('y', 37); t1.setAttribute('text-anchor', 'middle');
+  t1.id = 'capVal';
+  const t2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  t2.setAttribute('x', 38); t2.setAttribute('y', 47); t2.setAttribute('text-anchor', 'middle');
+  t2.setAttribute('class', 'u');
+  t2.textContent = 'TJ';
+  svg.append(t1, t2);
+}
+
+function setWheel(rem) {
+  const on = Math.round(SEGS * rem / CAP_MAX);
+  capSegs.forEach((l, i) => l.setAttribute('stroke', i < on ? '#d8a23a' : '#2a2f35'));
+  document.getElementById('capVal').textContent = Math.round(rem);
+}
+
+const rechargeH = rem => CAP_TAU * (5 + Math.log(1 - Math.sqrt(rem / CAP_MAX))) / 3600;
+
+function capDefault() {
+  setWheel(CAP_MAX);
+  document.getElementById('capStats').innerHTML =
+    `<b>${CAP_MAX}</b> TJ · <b>~${CAP_AVG}</b> TJ/h avg<br>empty → full <b>~6.25</b> h`;
+}
+
+function capZone(zi) {
+  const cost = shipCost(ship, zi);
+  if (!cost) { capDefault(); return; }
+  const jumps = Math.floor(CAP_MAX / cost);
+  const rem = CAP_MAX - jumps * cost;
+  const rate = CAP_AVG / cost;
+  setWheel(rem);
+  document.getElementById('capStats').innerHTML =
+    `<b>${jumps}</b> jumps from full cap<br>` +
+    `<b>~${rate >= 20 ? Math.round(rate) : rate.toFixed(1)}</b> jumps/h sustained<br>` +
+    `full again in <b>~${rechargeH(rem).toFixed(1)}</b> h`;
+}
+
 function renderTable() {
   document.getElementById('zones').innerHTML =
     '<tr><th>Zone</th><th>ly</th><th>Mult.</th><th>TJ</th></tr>' +
     ZONES.map((z, zi) =>
       `<tr><td><span class="sw" style="background:${z.color}"></span>Zone ${z.n}</td>` +
       `<td>${z.range}</td><td>×${z.mult}</td><td>${fmt(shipCost(ship, zi))}</td></tr>`).join('');
+  [...document.getElementById('zones').rows].slice(1).forEach((tr, zi) => {
+    tr.onmouseenter = () => capZone(zi);
+    tr.onmouseleave = capDefault;
+    tr.onclick = () => capZone(zi);
+  });
 }
 renderTable();
+capDefault();
 
 function autocomplete(input, box, list, onPick) {
   let idx = 0;
@@ -353,6 +413,6 @@ const shipInput = document.getElementById('ship');
 shipInput.value = SHIPS[ship][0];
 autocomplete(shipInput, document.getElementById('shipSuggestions'),
   () => SHIPS.map(s => s[0]),
-  i => { ship = i; shipInput.value = SHIPS[i][0]; renderTable(); tooltip.style.display = 'none'; });
+  i => { ship = i; shipInput.value = SHIPS[i][0]; renderTable(); capDefault(); tooltip.style.display = 'none'; });
 shipInput.addEventListener('focus', () => shipInput.select());
 shipInput.addEventListener('blur', () => setTimeout(() => shipInput.value = SHIPS[ship][0], 150));
