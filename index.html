@@ -6,72 +6,82 @@
 <title>Ansiblex Zones</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='6' fill='none' stroke='%233fbf6f' stroke-width='2'/><circle cx='8' cy='8' r='2' fill='%23e05c3a'/></svg>">
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { height: 100%; overflow: hidden; background: #06080d; color: #cdd6e4;
-    font: 13px/1.45 system-ui, -apple-system, sans-serif; }
-  #map { position: absolute; inset: 0; cursor: grab; }
-  #map.dragging { cursor: grabbing; }
-
-  #panel { position: absolute; top: 12px; left: 12px; width: 300px; background: #0d1220ee;
-    border: 1px solid #232c42; border-radius: 8px; padding: 12px 14px; user-select: none; }
-  #panel h1 { font-size: 15px; letter-spacing: .06em; color: #e8eefb; margin-bottom: 8px; }
-  #panel h1 span { color: #5b8dd9; }
-
-  #search { position: relative; }
-  #search input { width: 100%; padding: 6px 8px; background: #060a14; color: #e8eefb;
-    border: 1px solid #2c3654; border-radius: 5px; outline: none; font: inherit; }
-  #search input:focus { border-color: #5b8dd9; }
-  #suggestions { position: absolute; top: 100%; left: 0; right: 0; z-index: 10; background: #0d1220;
-    border: 1px solid #2c3654; border-radius: 5px; margin-top: 2px; display: none; overflow: hidden; }
-  #suggestions div { padding: 5px 8px; cursor: pointer; }
-  #suggestions div small { color: #6b7894; }
-  #suggestions div.active, #suggestions div:hover { background: #1b2440; }
-
-  #capital { margin-top: 8px; display: none; }
-  #capital b { color: #e8eefb; }
-  #capital small { color: #6b7894; }
-  #capital a { color: #5b8dd9; cursor: pointer; float: right; }
-
-  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-  th, td { text-align: left; padding: 2px 4px; font-size: 12px; }
-  th { color: #6b7894; font-weight: normal; border-bottom: 1px solid #232c42; }
-  td:last-child, th:last-child { text-align: right; }
-  .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
-
-  #notes { margin-top: 8px; font-size: 11px; color: #6b7894; }
-  #notes p { margin-top: 4px; }
-  label.tog { display: inline-flex; align-items: center; gap: 4px; margin: 8px 12px 0 0; font-size: 12px; cursor: pointer; }
-
-  #tooltip { position: absolute; pointer-events: none; background: #0d1220f2; border: 1px solid #2c3654;
-    border-radius: 6px; padding: 7px 10px; font-size: 12px; display: none; z-index: 20; white-space: nowrap; }
-  #tooltip b { color: #e8eefb; }
-  #tooltip .dim { color: #6b7894; }
-
-  @media (max-width: 640px) {
-    #panel { width: calc(100% - 24px); }
-    #panel.min table, #panel.min #notes { display: none; }
+  :root {
+    --panel: rgba(9, 11, 13, .88);
+    --line: #23272c;
+    --line2: #383e45;
+    --txt: #b9bfc6;
+    --bright: #e6eaee;
+    --mut: #697077;
+    --acc: #d8a23a;
+    --mono: Consolas, "Liberation Mono", Menlo, monospace;
   }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; overflow: hidden; background: #050607; color: var(--txt);
+    font: 11px/1.5 Verdana, Geneva, sans-serif; }
+  #app { position: absolute; inset: 0; }
+
+  #panel { position: absolute; top: 10px; left: 10px; width: 252px; background: var(--panel);
+    border: 1px solid var(--line); backdrop-filter: blur(6px); padding: 10px 12px 12px; user-select: none; }
+  #panel header { font-size: 10px; letter-spacing: .18em; color: var(--bright);
+    padding-bottom: 7px; margin-bottom: 9px; border-bottom: 1px solid var(--line); }
+  #panel header em { font-style: normal; color: var(--acc); }
+
+  .lbl { font-size: 9px; letter-spacing: .1em; color: var(--mut); margin: 8px 0 3px; }
+  .box { position: relative; }
+  .box input { width: 100%; padding: 5px 7px; background: #0b0e11; color: var(--bright);
+    border: 1px solid var(--line2); outline: none; font: inherit; }
+  .box input:focus { border-color: var(--acc); }
+  .box input::placeholder { color: #4d545b; }
+  .sug { position: absolute; top: 100%; left: 0; right: 0; z-index: 10; background: #0b0e11;
+    border: 1px solid var(--line2); border-top: 0; display: none; }
+  .sug div { padding: 4px 7px; cursor: pointer; }
+  .sug div small { color: var(--mut); font-size: 10px; }
+  .sug div.active, .sug div:hover { background: #14181d; box-shadow: inset 2px 0 var(--acc); }
+
+  #capital { margin-top: 7px; display: none; }
+  #capital b { color: var(--bright); font-weight: bold; }
+  #capital small { color: var(--mut); }
+  #capital a { color: var(--mut); cursor: pointer; float: right; font-family: var(--mono); }
+  #capital a:hover { color: var(--acc); }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th { font-size: 9px; letter-spacing: .1em; color: var(--mut); font-weight: normal;
+    text-align: left; padding: 2px 4px 4px; border-bottom: 1px solid var(--line2); }
+  td { padding: 3px 4px; border-bottom: 1px solid var(--line); }
+  td:nth-child(2), td:nth-child(3), td:nth-child(4) { font-family: var(--mono); }
+  td:last-child, th:last-child, td:nth-child(3), th:nth-child(3) { text-align: right; }
+  tr:last-child td { border-bottom: 0; }
+  .sw { display: inline-block; width: 8px; height: 8px; margin-right: 6px; }
+
+  #tooltip { position: absolute; pointer-events: none; background: var(--panel);
+    border: 1px solid var(--line2); padding: 6px 9px; display: none; z-index: 20; white-space: nowrap; }
+  #tooltip b { color: var(--bright); }
+  #tooltip .dim { color: var(--mut); }
+  #tooltip .num { font-family: var(--mono); }
+
+  @media (max-width: 640px) { #panel { width: calc(100% - 20px); } }
 </style>
 </head>
 <body>
-<canvas id="map"></canvas>
+<div id="app"></div>
 <div id="panel">
-  <h1>ANSIBLEX <span>ZONES</span></h1>
-  <div id="search">
-    <input id="q" placeholder="Search your capital system…" autocomplete="off" spellcheck="false">
-    <div id="suggestions"></div>
+  <header>ANSIBLEX <em>//</em> ZONES</header>
+  <div class="lbl">CAPITAL SYSTEM</div>
+  <div class="box">
+    <input id="q" placeholder="system name" autocomplete="off" spellcheck="false">
+    <div id="suggestions" class="sug"></div>
   </div>
   <div id="capital"></div>
-  <table id="zones"></table>
-  <div id="notes">
-    <p>Jump cost = ship base cost (1–19 TJ) × destination zone multiplier. Strategic Cruiser 13 TJ · Black Ops 18 TJ · T1 hauler 1 TJ.</p>
-    <p>Capitals &amp; supers lose Ansiblex access (Rorqual exempt). Capital system moves have a 90-day cooldown.</p>
-    <p>Zone 1 span (0–5 ly) is confirmed; outer zone widths assume 5 ly shells until CCP publishes exact ranges. Rings are a top-down projection — system dots are colored by true 3D distance.</p>
+  <div class="lbl">SHIP CLASS</div>
+  <div class="box">
+    <input id="ship" autocomplete="off" spellcheck="false">
+    <div id="shipSuggestions" class="sug"></div>
   </div>
-  <label class="tog"><input type="checkbox" id="tGates" checked> gates</label>
-  <label class="tog"><input type="checkbox" id="tZoneColor" checked> zone colors</label>
+  <table id="zones"></table>
 </div>
 <div id="tooltip"></div>
-<script src="app.js"></script>
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+<script type="module" src="app.js"></script>
 </body>
 </html>
