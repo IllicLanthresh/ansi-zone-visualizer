@@ -64,7 +64,7 @@ const pointer = new THREE.Vector2();
 const capitalGroup = new THREE.Group();
 scene.add(capitalGroup);
 const hoverMarker = new THREE.Mesh(
-  new THREE.SphereGeometry(0.35, 12, 8),
+  new THREE.SphereGeometry(0.22, 12, 8),
   new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.9 }));
 hoverMarker.visible = false;
 scene.add(hoverMarker);
@@ -95,7 +95,7 @@ fetch('data.json').then(r => r.json()).then(d => {
   dctx.fillStyle = '#fff';
   dctx.fill();
   points = new THREE.Points(geo, new THREE.PointsMaterial({
-    vertexColors: true, size: 0.5, sizeAttenuation: true,
+    vertexColors: true, size: 0.32, sizeAttenuation: true,
     map: new THREE.CanvasTexture(dot), alphaTest: 0.5, transparent: true }));
   scene.add(points);
   applyColors();
@@ -108,7 +108,7 @@ fetch('data.json').then(r => r.json()).then(d => {
   const egeo = new THREE.BufferGeometry();
   egeo.setAttribute('position', new THREE.BufferAttribute(epos, 3));
   scene.add(new THREE.LineSegments(egeo, new THREE.LineBasicMaterial({
-    color: '#2b3646', transparent: true, opacity: 0.5 })));
+    color: '#41506a', transparent: true, opacity: 0.75 })));
 
   buildLabels();
 
@@ -309,7 +309,7 @@ function setCapital(i, silent) {
     capitalGroup.add(tag);
   }
   capitalGroup.add(new THREE.Mesh(
-    new THREE.SphereGeometry(0.45, 16, 12),
+    new THREE.SphereGeometry(0.28, 16, 12),
     new THREE.MeshBasicMaterial({ color: '#ffffff' })));
   const name = makeLabel(cap[0], '#ffffff', 1.6);
   name.position.set(0, 1.6, 0);
