@@ -268,22 +268,28 @@ function hideTip() {
 }
 
 let downAt = null, tapSel = -1;
-renderer.domElement.addEventListener('pointerdown', e => {
-  downAt = { x: e.clientX, y: e.clientY };
-  if (e.pointerType !== 'touch') hideTip();
-});
-renderer.domElement.addEventListener('pointerup', e => {
-  const tapped = downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 8;
-  downAt = null;
-  if (!tapped) return;
-  const idx = raycastAt(e.clientX, e.clientY, e.pointerType === 'touch' ? 2.5 : 1);
-  if (e.pointerType === 'touch') {
+
+function handleTap(x, y, touch) {
+  const idx = raycastAt(x, y, touch ? 2.5 : 1);
+  if (touch) {
     if (idx < 0) { hideTip(); tapSel = -1; }
-    else if (idx === tapSel) { setCapital(idx); showTip(idx, e.clientX, e.clientY, true); }
-    else { tapSel = idx; showTip(idx, e.clientX, e.clientY, true); }
+    else if (idx === tapSel) { setCapital(idx); showTip(idx, x, y, true); }
+    else { tapSel = idx; showTip(idx, x, y, true); }
   } else if (idx >= 0) {
     setCapital(idx);
   }
+}
+
+renderer.domElement.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'touch') return;
+  downAt = { x: e.clientX, y: e.clientY };
+  hideTip();
+});
+renderer.domElement.addEventListener('pointerup', e => {
+  if (e.pointerType === 'touch') return;
+  const tapped = downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 8;
+  downAt = null;
+  if (tapped) handleTap(e.clientX, e.clientY, false);
 });
 renderer.domElement.addEventListener('pointermove', e => {
   if (!points || downAt || e.pointerType === 'touch') return;
@@ -291,6 +297,23 @@ renderer.domElement.addEventListener('pointermove', e => {
   if (hoverIdx >= 0) showTip(hoverIdx, e.clientX, e.clientY, false);
   else hideTip();
 });
+
+let touchStart = null;
+renderer.domElement.addEventListener('touchstart', e => {
+  touchStart = e.touches.length === 1
+    ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now() }
+    : null;
+}, { passive: true });
+renderer.domElement.addEventListener('touchend', e => {
+  if (!touchStart || e.touches.length) return;
+  const t = e.changedTouches[0];
+  const slop = Math.hypot(t.clientX - touchStart.x, t.clientY - touchStart.y);
+  const dur = performance.now() - touchStart.t;
+  touchStart = null;
+  if (slop > 18 || dur > 700) return;
+  e.preventDefault();
+  handleTap(t.clientX, t.clientY, true);
+}, { passive: false });
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
@@ -429,7 +452,12 @@ function systemSearch() {
   const input = document.getElementById('q');
   autocomplete(input, document.getElementById('suggestions'),
     () => data.systems.map(s => `${s[0]} <small>${data.regions[s[1]]}</small>`),
-    i => { input.value = ''; setCapital(i); flyTo(i); });
+    i => {
+      input.value = '';
+      setCapital(i);
+      flyTo(i);
+      if (matchMedia('(max-width: 640px)').matches) panel.classList.add('closed');
+    });
 }
 
 const shipInput = document.getElementById('ship');
