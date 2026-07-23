@@ -235,7 +235,8 @@ function flyTo(i) {
 
 function raycastAt(x, y, k = 1) {
   if (!points) return -1;
-  pointer.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1);
+  const r = renderer.domElement.getBoundingClientRect();
+  pointer.set((x - r.left) / r.width * 2 - 1, -((y - r.top) / r.height) * 2 + 1);
   raycaster.setFromCamera(pointer, camera);
   const dist = camera.position.distanceTo(controls.target);
   raycaster.params.Points.threshold = Math.max(0.15, dist * 0.006) * k;
@@ -287,6 +288,7 @@ renderer.domElement.addEventListener('pointerdown', e => {
 });
 renderer.domElement.addEventListener('pointerup', e => {
   if (e.pointerType === 'touch') return;
+  tapHandledAt = performance.now();
   const tapped = downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 8;
   downAt = null;
   if (tapped) handleTap(e.clientX, e.clientY, false);
@@ -298,7 +300,7 @@ renderer.domElement.addEventListener('pointermove', e => {
   else hideTip();
 });
 
-let touchStart = null;
+let touchStart = null, tapHandledAt = 0;
 renderer.domElement.addEventListener('touchstart', e => {
   touchStart = e.touches.length === 1
     ? { x: e.touches[0].clientX, y: e.touches[0].clientY, t: performance.now() }
@@ -306,6 +308,7 @@ renderer.domElement.addEventListener('touchstart', e => {
 }, { passive: true });
 renderer.domElement.addEventListener('touchend', e => {
   if (!touchStart || e.touches.length) return;
+  tapHandledAt = performance.now();
   const t = e.changedTouches[0];
   const slop = Math.hypot(t.clientX - touchStart.x, t.clientY - touchStart.y);
   const dur = performance.now() - touchStart.t;
@@ -314,6 +317,13 @@ renderer.domElement.addEventListener('touchend', e => {
   e.preventDefault();
   handleTap(t.clientX, t.clientY, true);
 }, { passive: false });
+
+// fallback for browsers where neither pointer nor touch handlers ran
+renderer.domElement.addEventListener('click', e => {
+  if (performance.now() - tapHandledAt < 600) return;
+  handleTap(e.clientX, e.clientY, true);
+});
+document.addEventListener('gesturestart', e => e.preventDefault());
 
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
