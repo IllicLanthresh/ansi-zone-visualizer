@@ -233,44 +233,63 @@ function flyTo(i) {
   flyTarget = pos(i);
 }
 
-let downAt = null;
-renderer.domElement.addEventListener('pointerdown', e => {
-  downAt = { x: e.clientX, y: e.clientY };
-  tooltip.style.display = 'none';
-});
-renderer.domElement.addEventListener('pointerup', e => {
-  if (downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 4 && hoverIdx >= 0) {
-    setCapital(hoverIdx);
-  }
-  downAt = null;
-});
-renderer.domElement.addEventListener('pointermove', e => {
-  if (!points || downAt) return;
-  pointer.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1);
+function raycastAt(x, y, k = 1) {
+  if (!points) return -1;
+  pointer.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1);
   raycaster.setFromCamera(pointer, camera);
   const dist = camera.position.distanceTo(controls.target);
-  raycaster.params.Points.threshold = Math.max(0.15, dist * 0.006);
+  raycaster.params.Points.threshold = Math.max(0.15, dist * 0.006) * k;
   const hit = raycaster.intersectObject(points)[0];
-  hoverIdx = hit ? hit.index : -1;
-  hoverMarker.visible = hoverIdx >= 0;
-  if (hoverIdx >= 0) {
-    hoverMarker.position.copy(pos(hoverIdx));
-    const s = data.systems[hoverIdx];
-    let html = `<b>${s[0]}</b> <span class="dim">${data.regions[s[1]]}</span><br>` +
-      `<span style="color:${secColor(s[5])}">${s[5].toFixed(1)}</span>`;
-    if (capital !== null && hoverIdx !== capital) {
-      const d = dists[hoverIdx], zi = zoneIdx(d), z = ZONES[zi];
-      html += ` <span class="dim">·</span> <span class="num">${d.toFixed(2)}</span> ly ` +
-        `<span class="dim">·</span> <span style="color:${z.color}">Zone ${z.n}</span><br>` +
-        `<span class="dim">${SHIPS[ship][0]}</span> <span class="num">${fmt(shipCost(ship, zi))}</span> TJ`;
-    }
-    tooltip.innerHTML = html;
-    tooltip.style.display = 'block';
-    tooltip.style.left = Math.min(e.clientX + 14, innerWidth - 230) + 'px';
-    tooltip.style.top = (e.clientY + 14) + 'px';
-  } else {
-    tooltip.style.display = 'none';
+  return hit ? hit.index : -1;
+}
+
+function showTip(idx, x, y, touch) {
+  hoverMarker.visible = true;
+  hoverMarker.position.copy(pos(idx));
+  const s = data.systems[idx];
+  let html = `<b>${s[0]}</b> <span class="dim">${data.regions[s[1]]}</span><br>` +
+    `<span style="color:${secColor(s[5])}">${s[5].toFixed(1)}</span>`;
+  if (capital !== null && idx !== capital) {
+    const d = dists[idx], zi = zoneIdx(d), z = ZONES[zi];
+    html += ` <span class="dim">·</span> <span class="num">${d.toFixed(2)}</span> ly ` +
+      `<span class="dim">·</span> <span style="color:${z.color}">Zone ${z.n}</span><br>` +
+      `<span class="dim">${SHIPS[ship][0]}</span> <span class="num">${fmt(shipCost(ship, zi))}</span> TJ`;
   }
+  if (touch && idx !== capital) html += `<br><span class="dim">tap again to set capital</span>`;
+  tooltip.innerHTML = html;
+  tooltip.style.display = 'block';
+  tooltip.style.left = Math.max(4, Math.min(x + 14, innerWidth - 230)) + 'px';
+  tooltip.style.top = Math.max(4, touch ? y - 100 : y + 14) + 'px';
+}
+
+function hideTip() {
+  tooltip.style.display = 'none';
+  hoverMarker.visible = false;
+}
+
+let downAt = null, tapSel = -1;
+renderer.domElement.addEventListener('pointerdown', e => {
+  downAt = { x: e.clientX, y: e.clientY };
+  if (e.pointerType !== 'touch') hideTip();
+});
+renderer.domElement.addEventListener('pointerup', e => {
+  const tapped = downAt && Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 8;
+  downAt = null;
+  if (!tapped) return;
+  const idx = raycastAt(e.clientX, e.clientY, e.pointerType === 'touch' ? 2.5 : 1);
+  if (e.pointerType === 'touch') {
+    if (idx < 0) { hideTip(); tapSel = -1; }
+    else if (idx === tapSel) { setCapital(idx); showTip(idx, e.clientX, e.clientY, true); }
+    else { tapSel = idx; showTip(idx, e.clientX, e.clientY, true); }
+  } else if (idx >= 0) {
+    setCapital(idx);
+  }
+});
+renderer.domElement.addEventListener('pointermove', e => {
+  if (!points || downAt || e.pointerType === 'touch') return;
+  hoverIdx = raycastAt(e.clientX, e.clientY);
+  if (hoverIdx >= 0) showTip(hoverIdx, e.clientX, e.clientY, false);
+  else hideTip();
 });
 
 addEventListener('resize', () => {
