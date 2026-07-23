@@ -110,6 +110,8 @@ fetch('data.json').then(r => r.json()).then(d => {
   scene.add(new THREE.LineSegments(egeo, new THREE.LineBasicMaterial({
     color: '#2b3646', transparent: true, opacity: 0.5 })));
 
+  buildLabels();
+
   const acc = {};
   d.systems.forEach((s, i) => (acc[d.regions[s[1]]] = acc[d.regions[s[1]]] || []).push(i));
   for (const [name, idxs] of Object.entries(acc)) {
@@ -134,6 +136,105 @@ fetch('data.json').then(r => r.json()).then(d => {
     if (i >= 0) { setCapital(i, true); flyTo(i); }
   }
 });
+
+// all system names in one atlas + one quad batch, faded by camera distance and zoom
+let labelMat = null;
+function buildLabels() {
+  const names = data.systems.map(s => s[0]);
+  const FONT = 18, ROW = 24, PAD = 6, AW = 4096, SCALE = 0.6;
+  const cv = document.createElement('canvas');
+  let c = cv.getContext('2d');
+  c.font = FONT + 'px Verdana';
+  const widths = names.map(nm => Math.ceil(c.measureText(nm).width) + PAD);
+  let x = 0, y = 0;
+  const rects = widths.map(w => {
+    if (x + w > AW) { x = 0; y += ROW; }
+    const r = [x, y, w];
+    x += w;
+    return r;
+  });
+  cv.width = AW;
+  cv.height = y + ROW;
+  c = cv.getContext('2d');
+  c.font = FONT + 'px Verdana';
+  c.textBaseline = 'middle';
+  c.lineWidth = 4;
+  c.lineJoin = 'round';
+  c.strokeStyle = 'rgba(0,0,0,.85)';
+  c.fillStyle = '#c3cdd9';
+  names.forEach((nm, i) => {
+    c.strokeText(nm, rects[i][0] + PAD / 2, rects[i][1] + ROW / 2);
+    c.fillText(nm, rects[i][0] + PAD / 2, rects[i][1] + ROW / 2);
+  });
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.NoColorSpace;
+  tex.minFilter = THREE.LinearMipmapLinearFilter;
+
+  const n = names.length;
+  const posA = new Float32Array(n * 12), cornerA = new Float32Array(n * 8),
+    uvA = new Float32Array(n * 8), wA = new Float32Array(n * 4);
+  const idx = new Uint32Array(n * 6);
+  for (let i = 0; i < n; i++) {
+    const [rx, ry, w] = rects[i];
+    for (let k = 0; k < 4; k++) {
+      const kx = k & 1, ky = k >> 1;
+      posA.set([positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]], (i * 4 + k) * 3);
+      cornerA.set([kx, ky], (i * 4 + k) * 2);
+      uvA.set([(rx + kx * w) / AW, 1 - (ry + ky * ROW) / cv.height], (i * 4 + k) * 2);
+      wA[i * 4 + k] = w * SCALE;
+    }
+    idx.set([i * 4, i * 4 + 1, i * 4 + 2, i * 4 + 2, i * 4 + 1, i * 4 + 3], i * 6);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(posA, 3));
+  geo.setAttribute('corner', new THREE.BufferAttribute(cornerA, 2));
+  geo.setAttribute('uv', new THREE.BufferAttribute(uvA, 2));
+  geo.setAttribute('wpx', new THREE.BufferAttribute(wA, 1));
+  geo.setIndex(new THREE.BufferAttribute(idx, 1));
+
+  labelMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, side: THREE.DoubleSide,
+    uniforms: {
+      atlas: { value: tex },
+      viewport: { value: new THREE.Vector2(innerWidth, innerHeight) },
+      camDist: { value: 100 },
+      zoomGate: { value: 0 },
+      hpx: { value: ROW * SCALE },
+    },
+    vertexShader: `
+      attribute vec2 corner;
+      attribute float wpx;
+      uniform vec2 viewport;
+      uniform float camDist, zoomGate, hpx;
+      varying vec2 vUv;
+      varying float vFade;
+      void main() {
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        float d = length(mv.xyz);
+        vFade = zoomGate * (1.0 - smoothstep(1.1 * camDist, 1.45 * camDist, d));
+        if (vFade < 0.01) { gl_Position = vec4(0.0, 0.0, -3.0, 1.0); vUv = vec2(0.0); return; }
+        vec4 clip = projectionMatrix * mv;
+        clip.x += (corner.x - 0.5) * wpx / viewport.x * 2.0 * clip.w;
+        clip.y -= (6.0 + corner.y * hpx) / viewport.y * 2.0 * clip.w;
+        gl_Position = clip;
+        vUv = uv;
+      }`,
+    fragmentShader: `
+      uniform sampler2D atlas;
+      varying vec2 vUv;
+      varying float vFade;
+      void main() {
+        vec4 t = texture2D(atlas, vUv);
+        float a = t.a * vFade * 0.9;
+        if (a < 0.02) discard;
+        gl_FragColor = vec4(t.rgb, a);
+      }`,
+  });
+  const mesh = new THREE.Mesh(geo, labelMat);
+  mesh.frustumCulled = false;
+  mesh.renderOrder = 20;
+  scene.add(mesh);
+}
 
 function secColor(sec) {
   return SEC_COLORS[Math.max(0, Math.min(10, Math.round(sec * 10)))];
@@ -343,6 +444,11 @@ function animate() {
   }
   const camDist = camera.position.distanceTo(controls.target);
   regionGroup.children.forEach(sp => sp.material.opacity = Math.min(0.65, Math.max(0, (camDist - 25) / 60)));
+  if (labelMat) {
+    labelMat.uniforms.viewport.value.set(innerWidth, innerHeight);
+    labelMat.uniforms.camDist.value = camDist;
+    labelMat.uniforms.zoomGate.value = 1 - THREE.MathUtils.smoothstep(camDist, 40, 85);
+  }
   controls.update();
   renderer.render(scene, camera);
 }
