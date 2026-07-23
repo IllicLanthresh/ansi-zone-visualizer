@@ -38,6 +38,10 @@ const SEC_COLORS = ['#f00000', '#d73000', '#f04800', '#f06000', '#d77700',
 const tooltip = document.getElementById('tooltip');
 let data, capital = null, dists = null, hoverIdx = -1;
 
+const panel = document.getElementById('panel');
+document.getElementById('tab').onclick = () => panel.classList.toggle('closed');
+if (matchMedia('(max-width: 640px)').matches) panel.classList.add('closed');
+
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#050607');
 const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 3000);
